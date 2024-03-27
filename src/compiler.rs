@@ -143,8 +143,12 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
     }
 
     pub fn declaraction(&mut self) {
-        matcher!(self, Var, self.var_declaration());
-        self.statement();
+        // matcher!(self, Var, self.var_declaration());
+        if self.parser.match_token(TType::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
 
         if self.parser.get_panic() {
             self.synchronize();
@@ -152,8 +156,12 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
     }
 
     pub fn statement(&mut self) {
-        matcher!(self, Print, self.print_statement());
-        self.expression_statement();
+        // matcher!(self, Print, self.print_statement());
+        if self.parser.match_token(TType::Print) {
+            self.print_statement();
+        } else {
+            self.expression_statement();
+        }
     }
 
     pub fn parse_precedence(&mut self, prec: Precedence) {
@@ -195,5 +203,18 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
 
     pub fn define_variable(&mut self, global: u8) {
         self.emit_bytes(OpCode::DefineGlobal.into(), global);
+    }
+
+    pub fn named_variable(&mut self, token: Option<Token<'src>>, can_assign: bool) {
+        match self.identififer_constant(token) {
+            Ok(arg) => {
+                if can_assign && self.parser.match_token(TType::Equal) {
+                    self.emit_bytes(OpCode::SetGlobal.into(), arg);
+                } else {
+                    self.emit_bytes(OpCode::GetGlobal.into(), arg);
+                }
+            }
+            Err(err) => self.parser.error_at(format!("{err}").as_str()),
+        }
     }
 }

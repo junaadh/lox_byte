@@ -231,7 +231,10 @@ impl<'a> Scanner<'a> {
                     self.advance();
                     self.line += 1;
                 }
-                _ => return self.make_token(TType::UnterminatedStringError),
+                None => return self.make_token(TType::UnterminatedStringError),
+                _ => {
+                    self.advance();
+                }
             }
         }
     }

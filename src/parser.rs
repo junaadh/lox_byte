@@ -48,7 +48,9 @@ impl<'src> Parser<'src> {
 
     pub fn advance(&mut self) {
         self.previous = self.current.take();
-        // println!("{:?}", self.previous);
+        if cfg!(feature = "scanner_debug") {
+            println!("{:?}", self.previous);
+        }
         loop {
             let token = self.scanner.scan_token();
             let error = TType::error_message(&token.ttype);
@@ -280,7 +282,7 @@ fn string(cc: &mut Compiler<'_, '_>, _can_assign: bool) {
 }
 
 fn variable(cc: &mut Compiler<'_, '_>, can_assign: bool) {
-    unimplemented!("variable")
+    cc.named_variable(cc.parser.previous.clone(), can_assign)
 }
 
 fn literal(cc: &mut Compiler<'_, '_>, _can_assign: bool) {

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use crate::{
     chunks::Chunk,
@@ -124,11 +124,35 @@ impl VM {
                     OpCode::Pop => {
                         self.pop()?;
                     }
+                    OpCode::GetGlobal => {
+                        let val = ip.read_constant();
+                        let str: InternString = val.clone().try_into()?;
+                        match self.globals.get(&str) {
+                            Some(str) => self.stack.push(str.clone()),
+                            None => {
+                                return Err(VmErrors::RuntimeError(
+                                    RuntimeErrors::UndefinedVariable(val.to_string()),
+                                ))
+                            }
+                        }
+                    }
                     OpCode::DefineGlobal => {
                         let val = ip.read_constant();
                         let str: InternString = val.try_into()?;
                         self.globals.insert(str, self.peek(0));
-                        self.pop();
+                        self.pop()?;
+                    }
+                    OpCode::SetGlobal => {
+                        let val = ip.read_constant();
+                        let str: InternString = val.clone().try_into()?;
+                        let peek = self.peek(0);
+                        if let Entry::Occupied(mut e) = self.globals.entry(str) {
+                            e.insert(peek);
+                        } else {
+                            return Err(VmErrors::RuntimeError(RuntimeErrors::UndefinedVariable(
+                                val.to_string(),
+                            )));
+                        }
                     }
                     OpCode::False => self.stack.push(false.into()),
                     OpCode::Equal => {
@@ -140,10 +164,6 @@ impl VM {
                     OpCode::Less => binary_op!(<),
                     OpCode::Nil => self.stack.push(Value::Nil),
                     OpCode::Return => {
-                        if cfg!(feature = "return_print") {
-                            let val = self.pop()?;
-                            println!("{}", val);
-                        }
                         return Ok(());
                     }
                 },
