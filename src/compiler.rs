@@ -4,8 +4,8 @@ use crate::{
     error::CompileErrors,
     opcode::OpCode,
     parser::{get_rule, Parser, Precedence},
-    token::TType,
-    value::Value,
+    token::{TType, Token},
+    value::{create_string, Value},
     vm::VM,
 };
 
@@ -14,6 +14,14 @@ pub struct Compiler<'src, 'vm> {
     pub vm: &'vm mut VM,
     pub parser: Parser<'src>,
     pub compiling_chunk: Chunk,
+}
+
+macro_rules! matcher {
+    ($self: ident, $token: ident, $action: expr) => {
+        if $self.parser.match_token(TType::$token) {
+            $action
+        }
+    };
 }
 
 impl<'src, 'vm> Compiler<'src, 'vm> {
@@ -29,7 +37,7 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         self.parser.advance();
 
         while !self.parser.match_token(TType::Eof) {
-            self.expression();
+            self.declaraction()
         }
 
         self.parser
@@ -82,6 +90,72 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         self.parse_precedence(Precedence::Assignment);
     }
 
+    pub fn var_declaration(&mut self) {
+        match self.parse_variable("Expect variable name") {
+            Ok(var) => {
+                if self.parser.match_token(TType::Equal) {
+                    self.expression();
+                } else {
+                    self.emit_byte(OpCode::Nil.into());
+                }
+                self.parser
+                    .consume(TType::SemiColon, "Expect ';' after variable declaration.");
+                self.define_variable(var);
+            }
+            Err(err) => self.parser.error_at(format!("{err}").as_str()),
+        }
+    }
+
+    pub fn expression_statement(&mut self) {
+        self.expression();
+        self.parser
+            .consume(TType::SemiColon, "Expect ';' after expression.");
+        self.emit_byte(OpCode::Pop.into());
+    }
+
+    pub fn print_statement(&mut self) {
+        self.expression();
+        self.parser
+            .consume(TType::SemiColon, "Expect ';' after print statement.");
+        self.emit_byte(OpCode::Print.into());
+    }
+
+    pub fn synchronize(&mut self) {
+        self.parser.set_panic(true);
+
+        while self.parser.current.as_ref().unwrap().ttype != TType::Eof {
+            if self.parser.previous.as_ref().unwrap().ttype == TType::SemiColon {
+                return;
+            }
+            match self.parser.current.as_ref().unwrap().ttype {
+                TType::Class
+                | TType::Fun
+                | TType::Var
+                | TType::For
+                | TType::If
+                | TType::While
+                | TType::Print
+                | TType::Return => return,
+                _ => {}
+            }
+            self.parser.advance();
+        }
+    }
+
+    pub fn declaraction(&mut self) {
+        matcher!(self, Var, self.var_declaration());
+        self.statement();
+
+        if self.parser.get_panic() {
+            self.synchronize();
+        }
+    }
+
+    pub fn statement(&mut self) {
+        matcher!(self, Print, self.print_statement());
+        self.expression_statement();
+    }
+
     pub fn parse_precedence(&mut self, prec: Precedence) {
         self.parser.advance();
 
@@ -106,5 +180,20 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
                 format!("{} Invalid assignment target.", CompileErrors::ParseError).as_str(),
             )
         }
+    }
+
+    pub fn identififer_constant(&mut self, t: Option<Token<'src>>) -> Result<u8, CompileErrors> {
+        let name = &t.unwrap().lexeme.unwrap();
+        let str = create_string(self.vm, name);
+        self.get_current_chunk().add(str.into())
+    }
+
+    pub fn parse_variable(&mut self, error: &str) -> Result<u8, CompileErrors> {
+        self.parser.consume(TType::Identifer, error);
+        self.identififer_constant(self.parser.previous.clone())
+    }
+
+    pub fn define_variable(&mut self, global: u8) {
+        self.emit_bytes(OpCode::DefineGlobal.into(), global);
     }
 }

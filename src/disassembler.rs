@@ -1,4 +1,4 @@
-use crate::{chunks::Chunk, opcode::OpCode};
+use crate::{chunks::Chunk, opcode::OpCode, value::Value};
 
 pub trait Disassembler {
     fn disassemble(&self, name: &str);
@@ -44,6 +44,11 @@ impl<'a> TracingIp<'a> {
         result
     }
 
+    pub fn read_constant(&mut self) -> Value {
+        let off = self.read();
+        self.chunk.constants[off as usize].clone()
+    }
+
     pub fn get_line(&self) -> Option<usize> {
         let mut line = None;
 
@@ -86,7 +91,10 @@ impl<'a> TracingIp<'a> {
                 OpCode::Divide => self.simple_instruction(&op),
                 OpCode::Not => self.simple_instruction(&op),
                 OpCode::Negate => self.simple_instruction(&op),
+                OpCode::Print => self.simple_instruction(&op),
                 OpCode::True => self.simple_instruction(&op),
+                OpCode::Pop => self.simple_instruction(&op),
+                OpCode::DefineGlobal => self.constant_instruction(&op),
                 OpCode::False => self.simple_instruction(&op),
                 OpCode::Equal => self.simple_instruction(&op),
                 OpCode::Greater => self.simple_instruction(&op),

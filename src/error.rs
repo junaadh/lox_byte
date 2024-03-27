@@ -27,6 +27,7 @@ pub enum RuntimeErrors {
     StackUnderFlow,
     TypeError(&'static str, String),
     InvalidAddition(String, String),
+    UndefinedVariable(String),
 }
 
 impl fmt::Display for RuntimeErrors {
@@ -36,6 +37,7 @@ impl fmt::Display for RuntimeErrors {
             Self::StackUnderFlow => write!(f, "Attempted to pop an empty stack."),
             Self::TypeError(t, v) => write!(f, "Expected a {}, but found value {}", t, v),
             Self::InvalidAddition(v1, v2) => write!(f, "Cannot add {} and {}", v1, v2),
+            Self::UndefinedVariable(v) => write!(f, "Value {}, is not defined.", v),
         }
     }
 }

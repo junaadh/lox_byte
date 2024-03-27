@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     chunks::Chunk,
@@ -6,7 +6,7 @@ use crate::{
     disassembler::TracingIp,
     error::{RuntimeErrors, VmErrors},
     opcode::OpCode,
-    value::{InternString, Objs, Value},
+    value::{create_string, InternString, Objs, Value},
 };
 
 type InterpretRes = Result<(), VmErrors>;
@@ -18,6 +18,7 @@ pub struct VM {
     pub objs: Vec<Box<dyn Objs>>,
     // interned string db
     pub strings: HashSet<InternString>,
+    pub globals: HashMap<InternString, Value>,
     pub chunks: Chunk,
 }
 
@@ -28,6 +29,7 @@ impl VM {
             stack: Vec::<Value>::new(),
             objs: Vec::new(),
             strings: HashSet::<InternString>::new(),
+            globals: HashMap::new(),
             chunks: Chunk::default(),
         }
     }
@@ -49,6 +51,12 @@ impl VM {
                 let a: f64 = self.pop()?.try_into()?;
                 self.stack.push((a $op b).into());
             }};
+        }
+
+        macro_rules! string {
+            ($a: expr, $b: expr) => {
+                create_string(self, format!("{}{}", $a, $b).as_str())
+            };
         }
 
         if cfg!(feature = "trace") {
@@ -75,18 +83,18 @@ impl VM {
                             (Value::String(v1), Value::String(v2)) => {
                                 let v1 = &v1.upgrade().unwrap().content;
                                 let v2 = &v2.upgrade().unwrap().content;
-                                let concat = format!("{}{}", v1, v2);
-                                self.stack.push(concat.into());
+                                let str = string!(v1, v2);
+                                self.stack.push(str.into());
                             }
                             (Value::String(v1), Value::Number(v2)) => {
                                 let v1 = &v1.upgrade().unwrap().content;
-                                let concat = format!("{}{}", v1, v2);
-                                self.stack.push(concat.into());
+                                let str = string!(v1, v2);
+                                self.stack.push(str.into());
                             }
                             (Value::Number(v1), Value::String(v2)) => {
                                 let v2 = &v2.upgrade().unwrap().content;
-                                let concat = format!("{}{}", v1, v2);
-                                self.stack.push(concat.into());
+                                let str = string!(v1, v2);
+                                self.stack.push(str.into());
                             }
                             (Value::Number(v1), Value::Number(v2)) => {
                                 let concat = v1 + v2;
@@ -111,7 +119,17 @@ impl VM {
                         let val = self.pop()?;
                         self.stack.push(val.negate()?)
                     }
+                    OpCode::Print => println!("{}", self.pop()?),
                     OpCode::True => self.stack.push(true.into()),
+                    OpCode::Pop => {
+                        self.pop()?;
+                    }
+                    OpCode::DefineGlobal => {
+                        let val = ip.read_constant();
+                        let str: InternString = val.try_into()?;
+                        self.globals.insert(str, self.peek(0));
+                        self.pop();
+                    }
                     OpCode::False => self.stack.push(false.into()),
                     OpCode::Equal => {
                         let a = self.pop()?;
@@ -122,8 +140,10 @@ impl VM {
                     OpCode::Less => binary_op!(<),
                     OpCode::Nil => self.stack.push(Value::Nil),
                     OpCode::Return => {
-                        let val = self.pop()?;
-                        println!("{}", val);
+                        if cfg!(feature = "return_print") {
+                            let val = self.pop()?;
+                            println!("{}", val);
+                        }
                         return Ok(());
                     }
                 },
@@ -145,7 +165,7 @@ impl VM {
     }
 
     #[allow(dead_code)]
-    fn peek(&mut self, distance: usize) -> Value {
+    fn peek(&self, distance: usize) -> Value {
         self.stack[self.stack.len() - 1 - distance].clone()
     }
 

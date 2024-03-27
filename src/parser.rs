@@ -80,6 +80,14 @@ impl<'src> Parser<'src> {
         }
         self.error_at(msg);
     }
+
+    pub fn get_panic(&mut self) -> bool {
+        self.panic_mode
+    }
+
+    pub fn set_panic(&mut self, b: bool) {
+        self.panic_mode = b;
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord)]

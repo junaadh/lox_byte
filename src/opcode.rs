@@ -16,9 +16,13 @@ pub enum OpCode {
     Not,
     Negate,
 
+    Print,
+
     True,
-    False,
+    Pop,
+    DefineGlobal,
     Equal,
+    False,
     Greater,
     Less,
 
@@ -37,7 +41,10 @@ impl fmt::Display for OpCode {
             Self::Divide => write!(f, "Op_Divide"),
             Self::Not => write!(f, "Op_Not"),
             Self::Negate => write!(f, "Op_Negate"),
+            Self::Print => write!(f, "Op_Print"),
             Self::True => write!(f, "Op_True"),
+            Self::Pop => write!(f, "Op_Pop"),
+            Self::DefineGlobal => write!(f, "Op_DefineGlobal"),
             Self::False => write!(f, "Op_False"),
             Self::Equal => write!(f, "Op_Equal"),
             Self::Greater => write!(f, "Op_Greater"),
