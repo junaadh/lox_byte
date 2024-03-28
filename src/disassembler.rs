@@ -49,6 +49,12 @@ impl<'a> TracingIp<'a> {
         self.chunk.constants[off as usize].clone()
     }
 
+    pub fn peek(&self, distance: usize) -> Value {
+        // println!("{:#?}", self.stack);
+        // println!("{}", self.stack.len());
+        self.chunk.constants[self.chunk.constants.len() - 1 - distance].clone()
+    }
+
     pub fn get_line(&self) -> Option<usize> {
         let mut line = None;
 

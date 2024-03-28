@@ -1,4 +1,4 @@
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     chunks::Chunk,
@@ -145,9 +145,13 @@ impl VM {
                     OpCode::SetGlobal => {
                         let val = ip.read_constant();
                         let str: InternString = val.clone().try_into()?;
-                        let peek = self.peek(0);
-                        if let Entry::Occupied(mut e) = self.globals.entry(str) {
-                            e.insert(peek);
+                        /*cause double borrow*/
+                        // let peek = self.peek(0);
+                        // if let Entry::Occupied(mut e) = self.globals.entry(str) {
+                        //     e.insert(peek);
+                        #[allow(clippy::map_entry)]
+                        if self.globals.contains_key(&str) {
+                            self.globals.insert(str, self.peek(0));
                         } else {
                             return Err(VmErrors::RuntimeError(RuntimeErrors::UndefinedVariable(
                                 val.to_string(),
@@ -184,8 +188,9 @@ impl VM {
         }
     }
 
-    #[allow(dead_code)]
     fn peek(&self, distance: usize) -> Value {
+        // println!("{:#?}", self.stack);
+        // println!("{}", self.stack.len());
         self.stack[self.stack.len() - 1 - distance].clone()
     }
 

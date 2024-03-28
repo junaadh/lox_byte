@@ -16,13 +16,13 @@ pub struct Compiler<'src, 'vm> {
     pub compiling_chunk: Chunk,
 }
 
-macro_rules! matcher {
-    ($self: ident, $token: ident, $action: expr) => {
-        if $self.parser.match_token(TType::$token) {
-            $action
-        }
-    };
-}
+// macro_rules! matcher {
+//     ($self: ident, $token: ident, $action: expr) => {
+//         if $self.parser.match_token(TType::$token) {
+//             $action
+//         }
+//     };
+// }
 
 impl<'src, 'vm> Compiler<'src, 'vm> {
     pub fn new(source: &'src str, vm: &'vm mut VM) -> Self {
@@ -177,10 +177,13 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
 
         while prec <= get_rule(self.parser.current.as_ref().unwrap().ttype).precedence {
             self.parser.advance();
-            match get_rule(self.parser.previous.as_ref().unwrap().ttype).infix {
-                Some(rule) => rule(self, assign),
-                None => continue,
-            }
+            // match get_rule(self.parser.previous.as_ref().unwrap().ttype).infix {
+            //     Some(rule) => rule(self, assign),
+            //     None => continue,
+            // }
+            get_rule(self.parser.previous.as_ref().unwrap().ttype)
+                .infix
+                .unwrap()(self, assign)
         }
 
         if assign && self.parser.match_token(TType::Equal) {
@@ -209,6 +212,7 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         match self.identififer_constant(token) {
             Ok(arg) => {
                 if can_assign && self.parser.match_token(TType::Equal) {
+                    self.expression();
                     self.emit_bytes(OpCode::SetGlobal.into(), arg);
                 } else {
                     self.emit_bytes(OpCode::GetGlobal.into(), arg);

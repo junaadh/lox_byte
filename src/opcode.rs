@@ -2,8 +2,6 @@ use core::fmt;
 
 use crate::error::RuntimeErrors;
 
-// use crate::error::CompileErrors;
-
 #[derive(Debug, Default)]
 #[repr(u8)]
 pub enum OpCode {
