@@ -6,6 +6,9 @@ pub enum CompileErrors {
     CantNegateNoneNumbers,
     ParseError,
     InvalidPrecedence,
+    TooManyLocals,
+    DuplicateName,
+    UninitializedLocal,
 }
 
 impl fmt::Display for CompileErrors {
@@ -17,6 +20,9 @@ impl fmt::Display for CompileErrors {
             Self::CantNegateNoneNumbers => write!(f, "Cannot use unary operator on none numbers"),
             Self::ParseError => write!(f, "Parse Error."),
             Self::InvalidPrecedence => write!(f, "Cannot convert usize to Precedence"),
+            Self::TooManyLocals => write!(f, "Too many local variables in function"),
+            Self::DuplicateName => write!(f, "Already a variable in scope with this name."),
+            Self::UninitializedLocal => write!(f, "Local hasn't been initialized yet."),
         }
     }
 }

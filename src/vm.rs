@@ -66,7 +66,11 @@ impl VM {
         let mut ip = TracingIp::new(&chunk, 0);
         while ip.valid() {
             if cfg!(feature = "trace") {
-                println!("{:?}\n", self.stack);
+                // canot pretty print <Weak<String>>
+                // println!("{:?}\n", self.stack);
+                print!("[");
+                self.stack.iter().for_each(|e| print!(" {} ", e));
+                println!("]\n");
                 ip.clone().disassemble_instruction();
             }
             let byte = ip.read();
@@ -123,6 +127,14 @@ impl VM {
                     OpCode::True => self.stack.push(true.into()),
                     OpCode::Pop => {
                         self.pop()?;
+                    }
+                    OpCode::GetLocal => {
+                        let slot = ip.read();
+                        self.stack.push(self.stack[slot as usize].clone())
+                    }
+                    OpCode::SetLocal => {
+                        let slot = ip.read();
+                        self.stack[slot as usize] = self.peek(0);
                     }
                     OpCode::GetGlobal => {
                         let val = ip.read_constant();

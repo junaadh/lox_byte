@@ -100,6 +100,8 @@ impl<'a> TracingIp<'a> {
                 OpCode::Print => self.simple_instruction(&op),
                 OpCode::True => self.simple_instruction(&op),
                 OpCode::Pop => self.simple_instruction(&op),
+                OpCode::GetLocal => self.byte_instruction(&op),
+                OpCode::SetLocal => self.byte_instruction(&op),
                 OpCode::GetGlobal => self.constant_instruction(&op),
                 OpCode::DefineGlobal => self.constant_instruction(&op),
                 OpCode::SetGlobal => self.constant_instruction(&op),
@@ -125,5 +127,10 @@ impl<'a> TracingIp<'a> {
             "{:<16} {:<4} {}",
             instruction, constant, self.chunk.constants[constant as usize]
         );
+    }
+
+    fn byte_instruction(&mut self, instruction: &OpCode) {
+        let slot = self.read();
+        println!("{:<16} {:<4}", instruction, slot);
     }
 }

@@ -18,6 +18,8 @@ pub enum OpCode {
 
     True,
     Pop,
+    GetLocal,
+    SetLocal,
     GetGlobal,
     DefineGlobal,
     SetGlobal,
@@ -44,6 +46,8 @@ impl fmt::Display for OpCode {
             Self::Print => write!(f, "Op_Print"),
             Self::True => write!(f, "Op_True"),
             Self::Pop => write!(f, "Op_Pop"),
+            Self::GetLocal => write!(f, "Op_GetLocal"),
+            Self::SetLocal => write!(f, "Op_SetLocal"),
             Self::GetGlobal => write!(f, "Op_GetGlobal"),
             Self::DefineGlobal => write!(f, "Op_DefineGlobal"),
             Self::SetGlobal => write!(f, "Op_SetGlobal"),

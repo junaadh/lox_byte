@@ -318,3 +318,15 @@ impl TryFrom<usize> for Precedence {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct Local<'loc> {
+    pub name: &'loc str,
+    pub depth: usize,
+}
+
+impl<'loc> Local<'loc> {
+    pub fn new(name: &'loc str, depth: usize) -> Self {
+        Local { name, depth }
+    }
+}
