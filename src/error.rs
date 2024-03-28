@@ -9,6 +9,8 @@ pub enum CompileErrors {
     TooManyLocals,
     DuplicateName,
     UninitializedLocal,
+    TooMuchToJump,
+    TooFarToLoop,
 }
 
 impl fmt::Display for CompileErrors {
@@ -23,6 +25,8 @@ impl fmt::Display for CompileErrors {
             Self::TooManyLocals => write!(f, "Too many local variables in function"),
             Self::DuplicateName => write!(f, "Already a variable in scope with this name."),
             Self::UninitializedLocal => write!(f, "Local hasn't been initialized yet."),
+            Self::TooMuchToJump => write!(f, "Too much code to jump over."),
+            Self::TooFarToLoop => write!(f, "Loop body too large."),
         }
     }
 }

@@ -87,6 +87,24 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         self.emit_byte(byte2);
     }
 
+    pub fn emit_loop(&mut self, loop_start: usize) {
+        self.emit_byte(OpCode::Loop.into());
+        let offset = self.compiling_chunk.code.len() - loop_start + 2;
+        if offset > u16::MAX as usize {
+            self.parser
+                .error_at(CompileErrors::TooFarToLoop.to_string().as_str());
+        }
+        self.emit_byte(((offset >> 8) & 0xff) as u8);
+        self.emit_byte((offset & 0xff) as u8);
+    }
+
+    pub fn emit_jump(&mut self, instuction: OpCode) -> usize {
+        self.emit_byte(instuction.into());
+        self.emit_byte(0xff_u8);
+        self.emit_byte(0xff_u8);
+        self.get_current_chunk().code.len() - 2
+    }
+
     fn emit_return(&mut self) {
         self.emit_byte(OpCode::Return.into())
     }
@@ -95,6 +113,19 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         match self.get_current_chunk().add(value) {
             Ok(byte) => self.emit_bytes(OpCode::Constant.into(), byte),
             Err(err) => self.parser.error_at(format!("{}", err).as_str()),
+        }
+    }
+
+    pub fn patch_jump(&mut self, offset: usize) {
+        let code = &mut self.get_current_chunk().code;
+        let jump = code.len() - offset - 2;
+
+        if jump > u16::MAX as usize {
+            self.parser
+                .error_at(format!("{}", CompileErrors::TooMuchToJump).as_str());
+        } else {
+            code[offset] = ((jump >> 8) & 0xff) as u8;
+            code[offset + 1] = (jump & 0xff) as u8;
         }
     }
 
@@ -115,7 +146,7 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
             .consume(TType::RightBrace, "Unclosed '{'. Expect a '}' after block.");
     }
 
-    pub fn var_declaration(&mut self) {
+    fn var_declaration(&mut self) {
         match self.parse_variable("Expect variable name") {
             Ok(var) => {
                 if self.parser.match_token(TType::Equal) {
@@ -131,18 +162,103 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         }
     }
 
-    pub fn expression_statement(&mut self) {
+    fn expression_statement(&mut self) {
         self.expression();
         self.parser
             .consume(TType::SemiColon, "Expect ';' after expression.");
         self.emit_byte(OpCode::Pop.into());
     }
 
-    pub fn print_statement(&mut self) {
+    fn for_statement(&mut self) {
+        self.begin_scope();
+        self.parser
+            .consume(TType::LeftParen, "Expect '(' after 'for'.");
+        if self.parser.match_token(TType::SemiColon) {
+        } else if self.parser.match_token(TType::Var) {
+            self.var_declaration();
+        } else {
+            self.expression_statement();
+        }
+
+        let mut loop_start = self.get_current_chunk().code.len();
+        let mut exit_jump: Option<usize> = None;
+        if !self.parser.match_token(TType::SemiColon) {
+            self.expression();
+            self.parser
+                .consume(TType::SemiColon, "Expect ';' atfter loop condition.");
+
+            exit_jump = Some(self.emit_jump(OpCode::JumpIfFalse));
+            self.emit_byte(OpCode::Pop.into());
+        }
+        if !self.parser.match_token(TType::RightParen) {
+            let body_jump = self.emit_jump(OpCode::Jump);
+            let increment_start = self.get_current_chunk().code.len();
+            self.expression();
+            self.emit_byte(OpCode::Pop.into());
+            self.parser.consume(
+                TType::RightParen,
+                "Expect ')' after 'for' clause. Unclosed parenthesis.",
+            );
+
+            self.emit_loop(loop_start);
+            loop_start = increment_start;
+            self.patch_jump(body_jump);
+        }
+
+        self.statement();
+        self.emit_loop(loop_start);
+        if let Some(exit) = exit_jump {
+            self.patch_jump(exit);
+            self.emit_byte(OpCode::Pop.into());
+        }
+        self.end_scope();
+    }
+
+    fn if_statement(&mut self) {
+        self.parser
+            .consume(TType::LeftParen, "Expect a '(' after an 'if'.");
+        self.expression();
+        self.parser
+            .consume(TType::RightParen, "Expect ')'. Unclosed parenthesis.");
+
+        let then_jump = self.emit_jump(OpCode::JumpIfFalse);
+        self.emit_byte(OpCode::Pop.into());
+        self.statement();
+
+        let else_jump = self.emit_jump(OpCode::Jump);
+
+        self.patch_jump(then_jump);
+        self.emit_byte(OpCode::Pop.into());
+
+        if self.parser.match_token(TType::Else) {
+            self.statement();
+        }
+        self.patch_jump(else_jump);
+    }
+
+    fn print_statement(&mut self) {
         self.expression();
         self.parser
             .consume(TType::SemiColon, "Expect ';' after print statement.");
         self.emit_byte(OpCode::Print.into());
+    }
+
+    fn while_statement(&mut self) {
+        let loop_start = self.compiling_chunk.code.len();
+        self.parser
+            .consume(TType::LeftParen, "Expect a '(' after a 'while'.");
+        self.expression();
+        self.parser.consume(
+            TType::RightParen,
+            "Unclosed parenthesis. Expect ')' after condition.",
+        );
+
+        let exit_jump = self.emit_jump(OpCode::JumpIfFalse);
+        self.emit_byte(OpCode::Pop.into());
+        self.statement();
+        self.emit_loop(loop_start);
+        self.patch_jump(exit_jump);
+        self.emit_byte(OpCode::Pop.into());
     }
 
     pub fn synchronize(&mut self) {
@@ -184,6 +300,12 @@ impl<'src, 'vm> Compiler<'src, 'vm> {
         // matcher!(self, Print, self.print_statement());
         if self.parser.match_token(TType::Print) {
             self.print_statement();
+        } else if self.parser.match_token(TType::For) {
+            self.for_statement();
+        } else if self.parser.match_token(TType::If) {
+            self.if_statement();
+        } else if self.parser.match_token(TType::While) {
+            self.while_statement();
         } else if self.parser.match_token(TType::LeftBrace) {
             self.begin_scope();
             self.block();

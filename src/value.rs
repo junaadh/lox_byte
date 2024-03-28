@@ -41,7 +41,7 @@ impl fmt::Display for Value {
             Self::Number(num) => write!(f, "{num}"),
             Self::String(str) => {
                 let word = &str.upgrade().unwrap().content;
-                write!(f, "\"{}\"", word)
+                write!(f, "{}", word)
             }
             Self::Bool(bool) => write!(f, "{bool}"),
             Self::Nil => write!(f, "nil"),

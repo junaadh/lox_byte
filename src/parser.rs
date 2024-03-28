@@ -206,12 +206,12 @@ pub fn get_rule(tt: TType) -> ParseRule {
         },
         TType::And => ParseRule {
             prefix: None,
-            infix: Some(and_op),
+            infix: Some(and_),
             precedence: Precedence::And,
         },
         TType::Or => ParseRule {
             prefix: None,
-            infix: Some(or_op),
+            infix: Some(or_),
             precedence: Precedence::Or,
         },
         _ => ParseRule::default(),
@@ -294,11 +294,21 @@ fn literal(cc: &mut Compiler<'_, '_>, _can_assign: bool) {
     }
 }
 
-fn and_op(cc: &mut Compiler<'_, '_>, _can_assign: bool) {
-    unimplemented!("and")
+fn and_(cc: &mut Compiler<'_, '_>, _can_assign: bool) {
+    let end_jump = cc.emit_jump(OpCode::JumpIfFalse);
+    cc.emit_byte(OpCode::Pop.into());
+    cc.parse_precedence(Precedence::And);
+
+    cc.patch_jump(end_jump);
 }
-fn or_op(cc: &mut Compiler<'_, '_>, _can_assign: bool) {
-    unimplemented!("or")
+fn or_(cc: &mut Compiler<'_, '_>, _can_assign: bool) {
+    let else_jump = cc.emit_jump(OpCode::JumpIfFalse);
+    let end_jump = cc.emit_jump(OpCode::Jump);
+
+    cc.patch_jump(else_jump);
+    cc.emit_byte(OpCode::Pop.into());
+    cc.parse_precedence(Precedence::Or);
+    cc.patch_jump(end_jump);
 }
 
 impl From<Precedence> for usize {

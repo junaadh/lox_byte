@@ -1,4 +1,4 @@
-use crate::{chunks::Chunk, opcode::OpCode, value::Value};
+use crate::{chunks::Chunk, cprint, cprintln, opcode::OpCode, value::Value};
 
 pub trait Disassembler {
     fn disassemble(&self, name: &str);
@@ -8,7 +8,7 @@ impl Disassembler for Chunk {
     #[allow(unused_variables)]
     fn disassemble(&self, name: &str) {
         if cfg!(feature = "debug") || cfg!(debug_assertions) {
-            println!("=={}==", name);
+            cprintln!(Red, "=={}==", name);
             let mut ip = TracingIp::new(self, 0);
             while ip.valid() {
                 ip.disassemble_instruction();
@@ -42,6 +42,12 @@ impl<'a> TracingIp<'a> {
         self.line = self.get_line();
         self.offset += 1;
         result
+    }
+
+    pub fn read_short(&mut self) -> u16 {
+        let high = self.read() as u16;
+        let low = self.read() as u16;
+        (high >> 8) | low
     }
 
     pub fn read_constant(&mut self) -> Value {
@@ -81,11 +87,11 @@ impl<'a> TracingIp<'a> {
     }
 
     pub fn disassemble_instruction(&mut self) {
-        print!("{:04} ", self.offset);
+        cprint!(Green, "{:04} ", self.offset);
         if self.offset > 0 && self.get_line() == self.get_prev_line() {
-            print!("   | ");
+            cprint!(LightPurple, "   | ");
         } else {
-            print! {"{:04} ", self.get_line().unwrap()};
+            cprint! {LightPurple,"{:04} ", self.get_line().unwrap()};
         }
         let byte = self.read();
         match OpCode::try_from(byte) {
@@ -98,6 +104,9 @@ impl<'a> TracingIp<'a> {
                 OpCode::Not => self.simple_instruction(&op),
                 OpCode::Negate => self.simple_instruction(&op),
                 OpCode::Print => self.simple_instruction(&op),
+                OpCode::Jump => self.jump_instruction(&op, 1),
+                OpCode::JumpIfFalse => self.jump_instruction(&op, 1),
+                OpCode::Loop => self.jump_instruction(&op, -1),
                 OpCode::True => self.simple_instruction(&op),
                 OpCode::Pop => self.simple_instruction(&op),
                 OpCode::GetLocal => self.byte_instruction(&op),
@@ -112,25 +121,39 @@ impl<'a> TracingIp<'a> {
                 OpCode::Nil => self.simple_instruction(&op),
                 OpCode::Return => self.simple_instruction(&op),
             },
-            Err(err) => println!("{}", err),
+            Err(err) => cprintln!(LightRed, "{}", err),
         }
     }
 
     fn simple_instruction(&self, instruction: &OpCode) {
-        println!("{}", instruction)
+        cprintln!(Cyan, "{}", instruction)
     }
 
     fn constant_instruction(&mut self, instruction: &OpCode) {
         let constant = self.read();
 
-        println!(
+        cprintln!(
+            Cyan,
             "{:<16} {:<4} {}",
-            instruction, constant, self.chunk.constants[constant as usize]
+            instruction,
+            constant,
+            self.chunk.constants[constant as usize]
         );
     }
 
     fn byte_instruction(&mut self, instruction: &OpCode) {
         let slot = self.read();
-        println!("{:<16} {:<4}", instruction, slot);
+        cprintln!(Cyan, "{:<16} {:<4}", instruction, slot);
+    }
+
+    fn jump_instruction(&mut self, instruction: &OpCode, sign: isize) {
+        let jump = self.read_short() as isize;
+        cprintln!(
+            Cyan,
+            "{:<16} {:4} -> {:4}",
+            instruction,
+            jump,
+            self.offset as isize + jump * sign
+        );
     }
 }

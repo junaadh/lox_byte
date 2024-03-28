@@ -32,43 +32,23 @@ fn main() {
             let file = args.nth(1).unwrap_or_default();
             run_file(file, &mut vm);
         }
-        _ => println!("Usage: lox_byte [file_name]"),
+        _ => cprintln!(LightRed, "Usage: lox_byte [file_name]"),
     }
-
-    // let mut chunk = Chunk::default();
-    // let num1 = chunk.add(Value::from(24.0)).unwrap_or_default();
-    // chunk.write(OpCode::Constant.into(), 1);
-    // chunk.write(num1, 1);
-
-    // let num2 = chunk.add(Value::from(12_f64)).unwrap_or_default();
-    // chunk.write(OpCode::Constant.into(), 1);
-    // chunk.write(num2, 1);
-
-    // chunk.write(OpCode::Subtract.into(), 2);
-
-    // let num3 = chunk.add(Value::from(2_f64)).unwrap_or_default();
-    // chunk.write(OpCode::Constant.into(), 2);
-    // chunk.write(num3, 3);
-    // chunk.write(OpCode::Divide.into(), 2);
-    // chunk.write(OpCode::Negate.into(), 1);
-
-    // chunk.write(OpCode::Return.into(), 3);
-    // vm.chunks.push(chunk.clone());
-    // vm.run().map_err(|err| println!("{:?}", err)).unwrap();
-    // chunk.disassemble("test_chunk");
 }
 
 fn repl(vm: &mut VM) {
     let mut buffer = String::new();
-    println!("Welcome to lox_byte repl.\n\tQuit by Ctrl+d");
+    cprintln!(LightPurple, "{}", "Welcome to lox_byte repl.");
+    cprintln!(Purple, "\tExit -> ctrl + d");
     loop {
-        print!("\x1b[35mlox \x1b[36m>> \x1b[m");
+        cprint!(LightCyan, "{}", "lox");
+        cprint!(LightBlue, " > ");
         io::stdout().flush().expect("Failed to flush stdout");
         buffer.clear();
         match io::stdin().read_line(&mut buffer) {
             Ok(0) => {
                 println!();
-                println!("Exiting... Goodbye...");
+                cprintln!(Cyan, "Exiting... Goodbye...");
                 process::exit(0);
             }
             Ok(_) => vm.interpret(&buffer).unwrap_or(()),

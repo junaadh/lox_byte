@@ -3,8 +3,10 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     chunks::Chunk,
     compiler::Compiler,
+    cprint, cprintln,
     disassembler::TracingIp,
     error::{RuntimeErrors, VmErrors},
+    memory::get_allocated_bytes,
     opcode::OpCode,
     value::{create_string, InternString, Objs, Value},
 };
@@ -60,7 +62,7 @@ impl VM {
         }
 
         if cfg!(feature = "trace") {
-            println!("Execution Trace");
+            cprintln!(Red, "Execution Trace");
         }
         let chunk = self.chunks.clone();
         let mut ip = TracingIp::new(&chunk, 0);
@@ -68,9 +70,19 @@ impl VM {
             if cfg!(feature = "trace") {
                 // canot pretty print <Weak<String>>
                 // println!("{:?}\n", self.stack);
-                print!("[");
-                self.stack.iter().for_each(|e| print!(" {} ", e));
-                println!("]\n");
+                cprint!(Purple, "[");
+                self.stack
+                    .iter()
+                    .for_each(|e| cprint!(LightPurple, " {} ", e));
+                cprintln!(Purple, "]\n");
+
+                cprintln!(
+                    LightGreen,
+                    "heap: {}, strings: {}, bytes: {}",
+                    self.objs.len(),
+                    self.strings.len(),
+                    get_allocated_bytes()
+                );
                 ip.clone().disassemble_instruction();
             }
             let byte = ip.read();
@@ -124,6 +136,20 @@ impl VM {
                         self.stack.push(val.negate()?)
                     }
                     OpCode::Print => println!("{}", self.pop()?),
+                    OpCode::Jump => {
+                        let offset = ip.read_short() as usize;
+                        ip.offset += offset;
+                    }
+                    OpCode::JumpIfFalse => {
+                        let offset = ip.read_short() as usize;
+                        if self.peek(0).is_falsy() {
+                            ip.offset += offset;
+                        }
+                    }
+                    OpCode::Loop => {
+                        let offset = ip.read_short() as usize;
+                        ip.offset -= offset;
+                    }
                     OpCode::True => self.stack.push(true.into()),
                     OpCode::Pop => {
                         self.pop()?;

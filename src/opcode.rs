@@ -15,6 +15,9 @@ pub enum OpCode {
     Negate,
 
     Print,
+    Jump,
+    JumpIfFalse,
+    Loop,
 
     True,
     Pop,
@@ -44,6 +47,9 @@ impl fmt::Display for OpCode {
             Self::Not => write!(f, "Op_Not"),
             Self::Negate => write!(f, "Op_Negate"),
             Self::Print => write!(f, "Op_Print"),
+            Self::Jump => write!(f, "Op_Jump"),
+            Self::JumpIfFalse => write!(f, "Op_JumpIfFalse"),
+            Self::Loop => write!(f, "Op_Loop"),
             Self::True => write!(f, "Op_True"),
             Self::Pop => write!(f, "Op_Pop"),
             Self::GetLocal => write!(f, "Op_GetLocal"),
